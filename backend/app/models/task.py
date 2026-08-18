@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Any, List
@@ -59,6 +59,13 @@ class Task(BaseModel):
     execution_duration_ms: Optional[float] = None
     state_history: List[StateTransition]
     retry_history: List[RetryRecord]
+
+    @field_validator("payload", mode="before")
+
+    def coerce_empty_payload(cls, v):
+        if isinstance(v, list) and len(v) == 0:
+            return {}
+        return v
 
 class TaskSummary(BaseModel):
     id: str

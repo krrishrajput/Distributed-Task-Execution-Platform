@@ -7,6 +7,7 @@ local scheduled_queue_key = KEYS[3]
 local idempotency_key_key = KEYS[4]
 local metrics_submitted_key = KEYS[5]
 local events_channel = KEYS[6]
+local all_tasks_key = KEYS[7]
 
 local task_id = ARGV[1]
 local task_json_data = ARGV[2]
@@ -25,6 +26,9 @@ if idempotency_key ~= "" then
 end
 
 redis.call("HSET", task_hash_key, "data", task_json_data)
+if all_tasks_key then
+    redis.call("SADD", all_tasks_key, task_id)
+end
 if scheduled_at_score > 0 then
     redis.call("ZADD", scheduled_queue_key, scheduled_at_score, task_id)
 else

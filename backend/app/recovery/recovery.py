@@ -37,15 +37,27 @@ class RecoveryService:
             await asyncio.sleep(self.config.RECOVERY_INTERVAL_SECONDS)
 
     async def _recover_abandoned_tasks(self, offline_workers: list[str]):
-        # Check active tasks for expired leases
+        # Check active tasks for expired leases or offline worker owners
         active_task_ids = await self.task_queue.redis.smembers(self.task_queue.active_tasks)
         now_str = datetime.now(timezone.utc).isoformat() + "Z"
         
         for task_id in active_task_ids:
-            # First check if lease exists (TTL might have expired)
             lease_exists = await self.task_queue.redis.exists(f"ts:lease:{task_id}")
-            if not lease_exists:
-                logger.info(f"Task {task_id} lease expired, attempting recovery")
+            should_recover = not lease_exists
+
+            if lease_exists and offline_workers:
+                # Inspect task data to see if owner worker is offline
+                raw = await self.task_queue.redis.hget(f"ts:task:{task_id}", "data")
+                if raw:
+                    import json
+                    tdata = json.loads(raw)
+                    if tdata.get("worker_id") in offline_workers:
+                        logger.info(f"Worker {tdata.get('worker_id')} is offline, invalidating lease for task {task_id}")
+                        await self.task_queue.redis.delete(f"ts:lease:{task_id}")
+                        should_recover = True
+
+            if should_recover:
+                logger.info(f"Attempting recovery for task {task_id}")
                 await self._recover_task(task_id, now_str)
 
     async def _recover_task(self, task_id: str, now_str: str):

@@ -21,6 +21,7 @@ end
 
 local raw_data = redis.call("HGET", task_key, "data")
 if not raw_data then return "error: task_not_found" end
+pcall(cjson.encode_empty_table_as_object, true)
 local task_data = cjson.decode(raw_data)
 
 task_data.status = "COMPLETED"

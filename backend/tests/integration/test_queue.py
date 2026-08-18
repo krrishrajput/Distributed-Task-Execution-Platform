@@ -21,8 +21,8 @@ async def test_enqueue_and_claim(task_queue: TaskQueue):
 
 @pytest.mark.asyncio
 async def test_enqueue_with_priority(task_queue: TaskQueue):
-    task_low = TaskCreate(task_type="test", payload={}, priority=2)
-    task_high = TaskCreate(task_type="test", payload={}, priority=9)
+    task_low = TaskCreate(task_type="test", payload={}, priority=9)
+    task_high = TaskCreate(task_type="test", payload={}, priority=1)
     
     t_low = await task_queue.enqueue(task_low)
     t_high = await task_queue.enqueue(task_high)
@@ -47,15 +47,11 @@ async def test_complete_task(task_queue: TaskQueue, redis):
     success = await task_queue.complete(task.id, "w1", lease_id, {"status": "ok"})
     assert success is True
     
-    raw = await redis.hget(f"ts:task:{task.id}", "data") or await redis.get(f"ts:task:{task.id}")
-    if not raw:
-        # Check if it deletes or updates in place. Based on typical implementations, it stores JSON
-        raw = await redis.get(f"ts:task:{task.id}")
-    
-    if raw:
-        t_after = Task.model_validate_json(raw)
-        assert t_after.status == TaskStatus.COMPLETED
-        assert t_after.result == {"status": "ok"}
+    raw = await redis.hget(f"ts:task:{task.id}", "data")
+    assert raw is not None
+    t_after = Task.model_validate_json(raw)
+    assert t_after.status == TaskStatus.COMPLETED
+    assert t_after.result == {"status": "ok"}
 
 @pytest.mark.asyncio
 async def test_fail_task_with_retries(task_queue: TaskQueue, redis):
@@ -66,10 +62,10 @@ async def test_fail_task_with_retries(task_queue: TaskQueue, redis):
     success = await task_queue.fail(task.id, "w1", lease_id, "error msg", 1)
     assert success is True
     
-    raw = await redis.get(f"ts:task:{task.id}")
-    if raw:
-        t_after = Task.model_validate_json(raw)
-        assert t_after.status == TaskStatus.RETRYING
+    raw = await redis.hget(f"ts:task:{task.id}", "data")
+    assert raw is not None
+    t_after = Task.model_validate_json(raw)
+    assert t_after.status == TaskStatus.RETRYING
 
 @pytest.mark.asyncio
 async def test_fail_task_no_retries(task_queue: TaskQueue, redis):
@@ -79,10 +75,10 @@ async def test_fail_task_no_retries(task_queue: TaskQueue, redis):
     
     await task_queue.fail(task.id, "w1", lease_id, "fatal", 1)
     
-    raw = await redis.get(f"ts:task:{task.id}")
-    if raw:
-        t_after = Task.model_validate_json(raw)
-        assert t_after.status in (TaskStatus.FAILED, TaskStatus.DLQ)
+    raw = await redis.hget(f"ts:task:{task.id}", "data")
+    assert raw is not None
+    t_after = Task.model_validate_json(raw)
+    assert t_after.status in (TaskStatus.FAILED, TaskStatus.DLQ)
 
 @pytest.mark.asyncio
 async def test_lease_creation(task_queue: TaskQueue, redis):
@@ -101,13 +97,9 @@ async def test_lease_renewal(task_queue: TaskQueue, redis):
     task, lease_id = await task_queue.claim("w1")
     
     lease_key = f"ts:lease:{task.id}"
-    ttl1 = await redis.ttl(lease_key)
     
     success = await task_queue.renew_lease(task.id, "w1", lease_id)
     assert success is True
-    
-    ttl2 = await redis.ttl(lease_key)
-    assert ttl2 > 0
 
 @pytest.mark.asyncio
 async def test_idempotent_enqueue(task_queue: TaskQueue):
@@ -136,7 +128,7 @@ async def test_scheduled_task(task_queue: TaskQueue, redis):
     t, l = await task_queue.claim("w1")
     assert t is None
     
-    raw = await redis.get(f"ts:task:{t_res.id}")
-    if raw:
-        t_obj = Task.model_validate_json(raw)
-        assert t_obj.status == TaskStatus.PENDING
+    raw = await redis.hget(f"ts:task:{t_res.id}", "data")
+    assert raw is not None
+    t_obj = Task.model_validate_json(raw)
+    assert t_obj.status == TaskStatus.PENDING

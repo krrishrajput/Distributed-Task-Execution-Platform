@@ -8,7 +8,6 @@ from typing import AsyncGenerator
 from app.core.config import Settings
 from app.queue.task_queue import TaskQueue
 
-# Use a test-specific Redis database
 TEST_REDIS_URL = "redis://localhost:6379/15"
 
 @pytest.fixture(scope="session")
@@ -31,31 +30,42 @@ def test_settings() -> Settings:
 
 @pytest_asyncio.fixture
 async def redis(test_settings: Settings) -> AsyncGenerator[Redis, None]:
-    pool = ConnectionPool.from_url(test_settings.REDIS_URL, decode_responses=True)
-    redis_client = Redis(connection_pool=pool)
-    
-    await redis_client.flushdb()
-    
-    yield redis_client
-    
-    await redis_client.flushdb()
-    await redis_client.close()
-    await pool.disconnect()
+    try:
+        pool = ConnectionPool.from_url(test_settings.REDIS_URL, decode_responses=True)
+        redis_client = Redis(connection_pool=pool)
+        await redis_client.ping()
+        await redis_client.flushdb()
+        
+        yield redis_client
+        
+        await redis_client.flushdb()
+        await redis_client.close()
+        await pool.disconnect()
+    except Exception:
+        # Fallback to in-memory FakeAsyncRedis with Lua scripting support
+        import fakeredis.aioredis
+        fake_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        await fake_client.flushdb()
+        
+        yield fake_client
+        
+        await fake_client.flushdb()
+        await fake_client.close()
 
 @pytest_asyncio.fixture
 async def task_queue(redis: Redis, test_settings: Settings) -> TaskQueue:
     return TaskQueue(redis, test_settings)
 
 @pytest_asyncio.fixture
-async def async_client(test_settings: Settings, monkeypatch) -> AsyncGenerator[AsyncClient, None]:
+async def async_client(redis: Redis, test_settings: Settings, monkeypatch) -> AsyncGenerator[AsyncClient, None]:
     import app.core.config
+    import app.core.redis
     import app.main
     
     monkeypatch.setattr(app.core.config, "config", test_settings)
+    monkeypatch.setattr(app.core.redis, "get_redis_client", lambda: redis)
+    monkeypatch.setattr(app.core.redis, "get_redis", lambda url: redis)
     
     transport = ASGITransport(app=app.main.app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # We need to trigger startup manually or it's handled by lifespan/ASGITransport.
-        # But ASGITransport handles lifespan automatically if using ASGITransport with AsyncClient.
-        # Wait, the app uses @app.on_event("startup"), which ASGITransport does support via Lifespan.
         yield client

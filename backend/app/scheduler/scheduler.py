@@ -57,9 +57,12 @@ class SchedulerService:
     async def _priority_aging_loop(self):
         while self.running:
             try:
-                # We could implement a Lua script for priority aging, 
-                # but for simplicity, wait for Phase 3 enhancement if needed.
-                pass
+                aged_count = await self.task_queue.scripts.priority_aging(
+                    [self.task_queue.priority_queue],
+                    [self.config.PRIORITY_AGING_AMOUNT, 100]
+                )
+                if aged_count > 0:
+                    logger.info(f"Priority aging: boosted priority for {aged_count} long-waiting tasks")
             except Exception as e:
                 logger.error(f"Error in priority aging: {e}")
             await asyncio.sleep(self.config.PRIORITY_AGING_INTERVAL_SECONDS)

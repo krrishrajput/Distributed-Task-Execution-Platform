@@ -75,9 +75,12 @@ class WorkerRuntime:
             
             result = await handler(task.payload, task.attempt)
             
-            await self.task_queue.complete(task.id, self.worker_id, lease_id, result)
-            self.worker_info.completed_tasks += 1
-            logger.info(f"Task {task.id} completed successfully")
+            success = await self.task_queue.complete(task.id, self.worker_id, lease_id, result)
+            if success:
+                self.worker_info.completed_tasks += 1
+                logger.info(f"Task {task.id} completed successfully")
+            else:
+                logger.warning(f"Task {task.id} completion rejected by Redis (lease mismatch or stale worker)")
             
         except Exception as e:
             logger.warning(f"Task {task.id} failed: {e}")

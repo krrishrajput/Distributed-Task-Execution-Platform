@@ -43,9 +43,7 @@ async def list_tasks(
     offset: int = 0,
     state: TaskStateManager = Depends(get_state_manager)
 ):
-    # For now, just return empty list as list tasks by status needs a proper index in Redis
-    # In a full implementation, you'd maintain a set per status
-    return []
+    return await state.list_tasks(status=status, limit=limit, offset=offset)
 
 @router.get("/dlq", response_model=List[TaskSummary])
 async def list_dlq_tasks(

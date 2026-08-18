@@ -22,8 +22,9 @@ async def test_lease_expiry_and_recovery(task_queue: TaskQueue, redis, test_sett
     exists = await redis.exists(lease_key)
     assert exists == 0
     
-    # Simulating detector recovering the task
-    await task_queue.scripts.recover_task(["ts:tasks:active", "ts:queue:priority"], [task.id, 5])
+    # Recovering task via recovery method
+    recovered = await task_queue.recover(task.id)
+    assert recovered is True
     
     # Claim again
     task2, lease_id2 = await task_queue.claim("w2")

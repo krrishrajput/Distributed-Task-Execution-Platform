@@ -46,11 +46,13 @@ class TaskQueue:
         idempotency_key_key = f"ts:idempotency:{task_create.idempotency_key}" if task_create.idempotency_key else ""
         
         scheduled_at_score = task_create.scheduled_at.timestamp() if task_create.scheduled_at else 0
-        score = task_create.priority  # Simplify scoring for now
+        # Score encoding: priority * 1e12 + timestamp_ns for FIFO ordering within same priority
+        ns = int(now.timestamp() * 1e9) % 1000000000
+        score = task_create.priority * 1000000000000 + ns
 
         keys = [
             task_hash_key, self.priority_queue, self.scheduled_queue,
-            idempotency_key_key, "ts:metrics:submitted", self.events_channel
+            idempotency_key_key, "ts:metrics:submitted", self.events_channel, "ts:tasks:all"
         ]
         event_json = json.dumps({
             "type": "TASK_ENQUEUED",
@@ -63,8 +65,9 @@ class TaskQueue:
         ]
 
         result = await self.scripts.enqueue_task(keys, args)
-        if result[1] == b"duplicate":
-            return result[0].decode("utf-8")
+        if len(result) > 1 and (result[1] == "duplicate" or result[1] == b"duplicate"):
+            dup_id = result[0].decode("utf-8") if isinstance(result[0], bytes) else result[0]
+            return dup_id
         
         return task
 
@@ -85,7 +88,7 @@ class TaskQueue:
         now = datetime.now(timezone.utc)
         timestamp_ms = int(now.timestamp() * 1000)
         keys = [f"ts:task:{task_id}", f"ts:lease:{task_id}", self.active_tasks, f"ts:worker:{worker_id}:tasks", "ts:metrics:completed", self.events_channel]
-        args = [task_id, worker_id, lease_id, json.dumps(result) if result else "", now.isoformat() + "Z", timestamp_ms]
+        args = [task_id, worker_id, lease_id, json.dumps(result) if result else "", now.isoformat(), timestamp_ms]
         
         res = await self.scripts.complete_task(keys, args)
         return res == b"ok" or res == "ok"
@@ -97,7 +100,7 @@ class TaskQueue:
         retry_score = now.timestamp() + delay
         
         keys = [f"ts:task:{task_id}", f"ts:lease:{task_id}", self.active_tasks, f"ts:worker:{worker_id}:tasks", self.retry_queue, self.dlq, "ts:metrics:failed", self.events_channel]
-        args = [task_id, worker_id, lease_id, error, now.isoformat() + "Z", retry_score, timestamp_ms]
+        args = [task_id, worker_id, lease_id, error, now.isoformat(), retry_score, timestamp_ms]
         
         res = await self.scripts.fail_task(keys, args)
         return not str(res).startswith("error:")
@@ -105,3 +108,17 @@ class TaskQueue:
     async def renew_lease(self, task_id: str, worker_id: str, lease_id: str) -> bool:
         res = await self.scripts.renew_lease([f"ts:lease:{task_id}"], [lease_id, self.config.TASK_LEASE_DURATION_SECONDS])
         return res == b"ok" or res == "ok"
+
+    async def recover(self, task_id: str) -> bool:
+        now_str = datetime.now(timezone.utc).isoformat()
+        keys = [
+            f"ts:task:{task_id}",
+            f"ts:lease:{task_id}",
+            self.priority_queue,
+            self.active_tasks,
+            "ts:worker",
+            self.events_channel
+        ]
+        args = [task_id, now_str]
+        res = await self.scripts.recover_task(keys, args)
+        return res in ("ok", b"ok")

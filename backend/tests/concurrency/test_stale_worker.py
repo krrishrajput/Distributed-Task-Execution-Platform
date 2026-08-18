@@ -11,21 +11,21 @@ async def test_stale_worker_completion_rejected(task_queue: TaskQueue, redis):
     task_a, lease_id_a = await task_queue.claim("worker_a")
     assert task_a.id == task_id
     
-    # Simulate expiration by deleting lease and recovering
+    # Simulate expiration by deleting lease
     await redis.delete(f"ts:lease:{task_id}")
-    await redis.srem("ts:tasks:active", task_id)
-    await redis.sadd("ts:worker:worker_a:tasks", task_id)
-    # Recover task manually (simulate detector)
-    await task_queue.scripts.recover_task(["ts:tasks:active", "ts:queue:priority"], [task_id, 9])
+    
+    # Recover task via recovery logic
+    recovered = await task_queue.recover(task_id)
+    assert recovered is True
     
     task_b, lease_id_b = await task_queue.claim("worker_b")
     assert task_b.id == task_id
     assert lease_id_a != lease_id_b
     
-    # Worker A tries to complete
+    # Worker A tries to complete with stale lease_id_a -> REJECTED
     success_a = await task_queue.complete(task_id, "worker_a", lease_id_a, {"result": "A"})
     assert success_a is False
     
-    # Worker B completes
+    # Worker B completes with valid lease_id_b -> SUCCESS
     success_b = await task_queue.complete(task_id, "worker_b", lease_id_b, {"result": "B"})
     assert success_b is True

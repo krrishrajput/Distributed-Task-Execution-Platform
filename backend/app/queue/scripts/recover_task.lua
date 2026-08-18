@@ -12,6 +12,7 @@ local timestamp_str = ARGV[2]
 
 local raw_data = redis.call("HGET", task_key, "data")
 if not raw_data then return "error: task_not_found" end
+pcall(cjson.encode_empty_table_as_object, true)
 local task_data = cjson.decode(raw_data)
 
 if task_data.status ~= "RUNNING" then
@@ -39,8 +40,8 @@ table.insert(task_data.state_history, {
 redis.call("HSET", task_key, "data", cjson.encode(task_data))
 redis.call("ZADD", priority_queue_key, task_data.priority, task_id)
 redis.call("SREM", active_tasks_key, task_id)
-if old_worker and old_worker ~= cjson.null then
-    redis.call("SREM", worker_tasks_key .. ":" .. old_worker, task_id)
+if old_worker and old_worker ~= cjson.null and old_worker ~= "" then
+    redis.call("SREM", "ts:worker:" .. old_worker .. ":tasks", task_id)
 end
 
 return "ok"
