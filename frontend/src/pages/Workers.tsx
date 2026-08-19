@@ -19,8 +19,8 @@ export function Workers() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data?.map(worker => (
-          <div key={worker.worker_id} className="bg-slate-900 border border-slate-800 p-4">
+        {data?.map((worker, idx) => (
+          <div key={worker.worker_id || idx} className="bg-slate-900 border border-slate-800 p-4">
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center space-x-2">
                 <Server className="w-5 h-5 text-slate-500" />

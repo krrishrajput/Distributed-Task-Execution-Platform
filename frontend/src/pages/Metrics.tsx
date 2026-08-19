@@ -15,16 +15,17 @@ export function Metrics() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Row 1 */}
-        <MetricCard title="Throughput" value={metrics.throughput.toFixed(1)} trend="/sec" icon={<Activity />} color="blue" />
-        <MetricCard title="Avg Execution" value={`${metrics.avg_execution_duration.toFixed(1)}ms`} icon={<Clock />} />
-        <MetricCard title="Worker Util" value={`${metrics.worker_utilization}%`} color={metrics.worker_utilization > 80 ? 'amber' : 'green'} icon={<Server />} />
-        <MetricCard title="Recovery Rate" value={`${metrics.recovery_count}/hr`} color="green" />
+        <MetricCard title="Throughput" value={(metrics?.throughput || 0).toFixed(1)} trend="/sec" icon={<Activity />} color="blue" />
+        <MetricCard title="Avg Execution" value={`${(metrics?.avg_execution_duration || 0).toFixed(1)}ms`} icon={<Clock />} />
+        <MetricCard title="Recovery Count" value={metrics?.recovery_count || 0} icon={<Activity />} />
+        <MetricCard title="DLQ Size" value={metrics?.dlq_count || 0} color={metrics?.dlq_count ? 'purple' : 'default'} />
+      </div>
 
-        {/* Row 2 */}
-        <MetricCard title="p50 Latency" value={`${metrics.latency_p50.toFixed(1)}ms`} />
-        <MetricCard title="p95 Latency" value={`${metrics.latency_p95.toFixed(1)}ms`} color="amber" />
-        <MetricCard title="p99 Latency" value={`${metrics.latency_p99.toFixed(1)}ms`} color="red" />
-        <MetricCard title="Fail/Retry" value={`${(metrics.failure_rate).toFixed(1)}%`} color={metrics.failure_rate > 10 ? 'red' : 'amber'} icon={<AlertTriangle />} />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard title="p50 Latency" value={`${(metrics?.latency_p50 || 0).toFixed(1)}ms`} />
+        <MetricCard title="p95 Latency" value={`${(metrics?.latency_p95 || 0).toFixed(1)}ms`} color="amber" />
+        <MetricCard title="p99 Latency" value={`${(metrics?.latency_p99 || 0).toFixed(1)}ms`} color="red" />
+        <MetricCard title="Fail/Retry" value={`${(metrics?.failure_rate || 0).toFixed(1)}%`} color={(metrics?.failure_rate || 0) > 10 ? 'red' : 'amber'} icon={<AlertTriangle />} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
