@@ -76,7 +76,7 @@ class TaskQueue:
         now = datetime.now(timezone.utc)
         
         keys = [self.priority_queue, self.active_tasks, f"ts:worker:{worker_id}:tasks", self.events_channel]
-        args = [worker_id, lease_id, self.config.TASK_LEASE_DURATION_SECONDS, int(now.timestamp())]
+        args = [worker_id, lease_id, self.config.TASK_LEASE_DURATION_SECONDS, int(now.timestamp()), now.isoformat()]
         
         raw_task = await self.scripts.claim_task(keys, args)
         if raw_task:

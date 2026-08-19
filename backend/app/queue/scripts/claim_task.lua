@@ -10,6 +10,7 @@ local worker_id = ARGV[1]
 local lease_id = ARGV[2]
 local lease_duration = tonumber(ARGV[3])
 local timestamp = tonumber(ARGV[4])
+local timestamp_str = ARGV[5]
 
 local item = redis.call("ZPOPMIN", priority_queue_key)
 if not item or #item == 0 then
@@ -29,7 +30,7 @@ local task_data = cjson.decode(raw_data)
 task_data.status = "RUNNING"
 task_data.worker_id = worker_id
 task_data.lease_id = lease_id
-task_data.started_at = os.date("!%Y-%m-%dT%H:%M:%SZ", timestamp)
+task_data.started_at = timestamp_str
 task_data.attempt = task_data.attempt + 1
 task_data.started_at_ms = timestamp * 1000
 
