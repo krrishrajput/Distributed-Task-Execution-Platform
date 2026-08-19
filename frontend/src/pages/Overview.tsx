@@ -17,10 +17,10 @@ export function Overview() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Throughput" value={metrics?.throughput.toFixed(1) || '0.0'} trend="/sec" icon={<Activity />} />
+        <MetricCard title="Throughput" value={(metrics?.throughput || 0).toFixed(1)} trend="/sec" icon={<Activity />} />
         <MetricCard title="Queue Depth" value={metrics?.queue_depth || 0} color="amber" icon={<List />} />
         <MetricCard title="Active Workers" value={metrics?.worker_utilization || 0} color="blue" icon={<Server />} />
-        <MetricCard title="Avg Latency" value={`${metrics?.latency_p50.toFixed(0) || 0}ms`} icon={<Clock />} />
+        <MetricCard title="Avg Latency" value={`${(metrics?.latency_p50 || 0).toFixed(0)}ms`} icon={<Clock />} />
         
         <MetricCard title="Failure Rate" value={`${(metrics?.failure_rate || 0).toFixed(2)}%`} color={metrics?.failure_rate && metrics.failure_rate > 5 ? 'red' : 'default'} icon={<XCircle />} />
         <MetricCard title="Retry Rate" value={`${(metrics?.retry_rate || 0).toFixed(2)}%`} color="amber" icon={<AlertTriangle />} />

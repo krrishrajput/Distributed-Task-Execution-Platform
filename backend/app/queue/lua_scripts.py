@@ -45,3 +45,6 @@ class LuaScriptManager:
 
     async def promote_retries(self, keys: list[str], args: list) -> int:
         return await self._load_script("promote_retries")(keys=keys, args=args)
+
+    async def priority_aging(self, keys: list[str], args: list) -> int:
+        return await self._load_script("priority_aging")(keys=keys, args=args)

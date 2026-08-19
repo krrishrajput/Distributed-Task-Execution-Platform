@@ -24,7 +24,7 @@ export function Workers() {
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center space-x-2">
                 <Server className="w-5 h-5 text-slate-500" />
-                <span className="font-mono font-bold">{worker.worker_id.substring(0,12)}</span>
+                <span className="font-mono font-bold">{worker?.worker_id?.substring(0,12) || 'unknown'}</span>
               </div>
               <StatusBadge status={worker.status} />
             </div>
