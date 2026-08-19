@@ -38,22 +38,31 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 # 2. Activate Python Virtual Environment
-source "$PROJECT_ROOT/backend/.venv/bin/activate"
+if [ -f "$PROJECT_ROOT/.venv/bin/activate" ]; then
+    source "$PROJECT_ROOT/.venv/bin/activate"
+elif [ -f "$PROJECT_ROOT/backend/.venv/bin/activate" ]; then
+    source "$PROJECT_ROOT/backend/.venv/bin/activate"
+else
+    echo "📦 Creating virtual environment..."
+    python3 -m venv "$PROJECT_ROOT/.venv"
+    source "$PROJECT_ROOT/.venv/bin/activate"
+    pip install -r "$PROJECT_ROOT/backend/requirements.txt"
+fi
 
 # 3. Start Backend API Server in background
 echo "🚀 Starting TaskStorm API Server (http://localhost:8000)..."
 cd "$PROJECT_ROOT/backend"
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+PYTHONPATH="$PROJECT_ROOT/backend" python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 API_PID=$!
 sleep 2
 
 # 4. Start 2 Worker Processes in background
 echo "⚙️ Starting Worker 1..."
-python -m app.workers.entry &
+PYTHONPATH="$PROJECT_ROOT/backend" python -m app.workers.entry &
 WORKER1_PID=$!
 
 echo "⚙️ Starting Worker 2..."
-python -m app.workers.entry &
+PYTHONPATH="$PROJECT_ROOT/backend" python -m app.workers.entry &
 WORKER2_PID=$!
 
 sleep 1
