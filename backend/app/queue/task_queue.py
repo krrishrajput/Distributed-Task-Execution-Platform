@@ -55,9 +55,10 @@ class TaskQueue:
             idempotency_key_key, "ts:metrics:submitted", self.events_channel, "ts:tasks:all"
         ]
         event_json = json.dumps({
-            "type": "TASK_ENQUEUED",
+            "event_type": "TASK_QUEUED",
             "task_id": task_id,
-            "timestamp": now.isoformat() + "Z"
+            "timestamp": now.isoformat(),
+            "data": {}
         })
         args = [
             task_id, task.model_dump_json(), score, scheduled_at_score,

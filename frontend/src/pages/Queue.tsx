@@ -1,6 +1,7 @@
 import React from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { api } from '../services/api';
+import { Link } from 'react-router-dom';
 
 export function Queue() {
   const { data: metrics } = usePolling(api.getMetrics, 5000);
@@ -42,9 +43,9 @@ export function Queue() {
             <h3 className="text-sm font-bold text-red-400 mb-4 font-mono">DEAD LETTER QUEUE (DLQ)</h3>
             <span className="text-3xl font-mono text-purple-400">{metrics.dlq_count}</span>
           </div>
-          <a href="/tasks?status=DLQ" className="text-xs font-mono text-slate-400 hover:text-white underline mt-4">
+          <Link to="/tasks?status=DLQ" className="text-xs font-mono text-slate-400 hover:text-white underline mt-4">
             VIEW DLQ TASKS &rarr;
-          </a>
+          </Link>
         </div>
       </div>
 

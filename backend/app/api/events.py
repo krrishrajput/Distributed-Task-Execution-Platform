@@ -13,10 +13,14 @@ async def event_streamer(redis: Redis, request: Request):
     subscriber = EventSubscriber(redis)
     await subscriber.subscribe()
     try:
+        yield ": connected\n\n"
         async for event in subscriber.event_generator():
             if await request.is_disconnected():
                 break
-            yield f"data: {event.model_dump_json()}\n\n"
+            if event is None:
+                yield ": ping\n\n"
+            else:
+                yield f"data: {event.model_dump_json()}\n\n"
     except asyncio.CancelledError:
         pass
 
@@ -25,4 +29,13 @@ async def event_stream(
     request: Request,
     redis: Redis = Depends(get_redis_client)
 ):
-    return StreamingResponse(event_streamer(redis, request), media_type="text/event-stream")
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+    }
+    return StreamingResponse(
+        event_streamer(redis, request), 
+        media_type="text/event-stream",
+        headers=headers
+    )

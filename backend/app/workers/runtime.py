@@ -24,7 +24,7 @@ class WorkerRuntime:
         self.active_tasks = set()
         
         self.worker_info = WorkerInfo(
-            id=self.worker_id,
+            worker_id=self.worker_id,
             status=WorkerStatus.HEALTHY,
             last_heartbeat=datetime.now(timezone.utc),
             started_at=datetime.now(timezone.utc),

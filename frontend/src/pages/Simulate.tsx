@@ -10,13 +10,13 @@ export function Simulate() {
     setLoading(true);
     try {
       if (count === 1) {
-        const res = await api.createTask({ task_type: type, payload });
-        setResult(`Success: Task ${res.task_id} created.`);
+        const res = await api.createTask({ task_type: type, payload }) as any;
+        setResult(`Success: Task ${res.id} created.`);
       } else {
         const ids = [];
         for (let i = 0; i < count; i++) {
-          const res = await api.createTask({ task_type: type, payload });
-          ids.push(res.task_id);
+          const res = await api.createTask({ task_type: type, payload }) as any;
+          ids.push(res.id);
         }
         setResult(`Success: Created ${count} tasks. IDs: \n${ids.join('\n')}`);
       }
@@ -29,11 +29,11 @@ export function Simulate() {
 
   const simulateButtons = [
     { label: "Submit Sleep Task", type: "sleep", payload: { duration: 5 } },
-    { label: "Submit Random Failure", type: "random_fail", payload: { failure_rate: 0.8 } },
-    { label: "Submit Deterministic Failure", type: "fail", payload: { message: "Simulated deterministic failure" } },
+    { label: "Submit Random Failure", type: "random_failure", payload: { failure_rate: 0.8 } },
+    { label: "Submit Deterministic Failure", type: "deterministic_failure", payload: { message: "Simulated deterministic failure" } },
     { label: "Submit Lease Expiration Task", type: "sleep", payload: { duration: 60 } }, // Takes longer than lease
     { label: "Submit Eventual Success", type: "eventual_success", payload: { failures_before_success: 2 } },
-    { label: "Submit CPU Simulation", type: "cpu_burn", payload: { iterations: 10000000 } },
+    { label: "Submit CPU Simulation", type: "cpu_simulation", payload: { iterations: 10000000 } },
   ];
 
   return (

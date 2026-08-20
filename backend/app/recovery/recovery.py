@@ -39,7 +39,7 @@ class RecoveryService:
     async def _recover_abandoned_tasks(self, offline_workers: list[str]):
         # Check active tasks for expired leases or offline worker owners
         active_task_ids = await self.task_queue.redis.smembers(self.task_queue.active_tasks)
-        now_str = datetime.now(timezone.utc).isoformat() + "Z"
+        now_str = datetime.now(timezone.utc).isoformat()
         
         for task_id in active_task_ids:
             lease_exists = await self.task_queue.redis.exists(f"ts:lease:{task_id}")

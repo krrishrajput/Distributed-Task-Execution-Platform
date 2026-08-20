@@ -17,12 +17,17 @@ class EventSubscriber:
 
     async def event_generator(self) -> AsyncGenerator[Event, None]:
         try:
-            async for message in self.pubsub.listen():
-                if message["type"] == "message":
-                    try:
-                        event_data = json.loads(message["data"])
-                        yield Event(**event_data)
-                    except Exception as e:
-                        logger.error(f"Failed to parse event: {e}")
+            while True:
+                message = await self.pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message is not None:
+                    if message["type"] == "message":
+                        try:
+                            event_data = json.loads(message["data"])
+                            yield Event(**event_data)
+                        except Exception as e:
+                            logger.error(f"Failed to parse event: {e}")
+                else:
+                    await asyncio.sleep(1.0)
+                    yield None
         finally:
             await self.pubsub.unsubscribe("ts:events")

@@ -47,3 +47,17 @@ class TaskStateManager:
 
     async def get_active_count(self) -> int:
         return await self.redis.scard("ts:tasks:active")
+
+    async def count_tasks(self, status: Optional[str] = None) -> int:
+        task_ids = await self.redis.smembers("ts:tasks:all")
+        if not status:
+            return len(task_ids)
+        count = 0
+        for tid in task_ids:
+            raw = await self.redis.hget(f"ts:task:{tid}", "data")
+            if raw:
+                import json
+                data = json.loads(raw)
+                if data.get("status") == str(status):
+                    count += 1
+        return count

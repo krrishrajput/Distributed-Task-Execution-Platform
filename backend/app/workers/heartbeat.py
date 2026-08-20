@@ -15,7 +15,7 @@ class HeartbeatManager:
 
     async def start(self):
         self._task = asyncio.create_task(self._heartbeat_loop())
-        logger.info(f"Started heartbeat for worker {self.worker_info.id}")
+        logger.info(f"Started heartbeat for worker {self.worker_info.worker_id}")
 
     async def stop(self):
         if self._task:
@@ -42,7 +42,7 @@ class HeartbeatManager:
             logger.error(f"Heartbeat loop error: {e}")
 
     async def _publish(self):
-        key = f"ts:worker_info:{self.worker_info.id}"
+        key = f"ts:worker_info:{self.worker_info.worker_id}"
         await self.redis.set(key, self.worker_info.model_dump_json(), ex=int(self.interval * 3))
         # Keep worker in set of all workers
-        await self.redis.sadd("ts:workers", self.worker_info.id)
+        await self.redis.sadd("ts:workers", self.worker_info.worker_id)

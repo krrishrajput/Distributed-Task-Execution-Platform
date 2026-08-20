@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+import uuid
 
 class EventType(str, Enum):
     TASK_QUEUED = "TASK_QUEUED"
@@ -18,8 +19,9 @@ class EventType(str, Enum):
     LEASE_EXPIRED = "LEASE_EXPIRED"
 
 class Event(BaseModel):
+    event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     event_type: EventType
     timestamp: datetime
     task_id: Optional[str] = None
     worker_id: Optional[str] = None
-    data: dict = {}
+    details: dict = {}

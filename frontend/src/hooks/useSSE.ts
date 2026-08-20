@@ -15,6 +15,9 @@ export function useSSE(url: string = '/api/v1/events', maxEvents: number = 100) 
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data) as SystemEvent;
+        if (!data.event_id) {
+          data.event_id = `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        }
         setEvents(prev => {
           const newEvents = [data, ...prev];
           if (newEvents.length > maxEvents) {

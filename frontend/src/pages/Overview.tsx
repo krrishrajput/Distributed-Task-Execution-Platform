@@ -8,6 +8,7 @@ import { Activity, Server, List, CheckCircle, AlertTriangle, XCircle, Clock } fr
 
 export function Overview() {
   const { data: metrics } = usePolling(api.getMetrics, 5000);
+  const { data: workers } = usePolling(api.listWorkers, 5000);
   const { events } = useSSE();
 
   return (
@@ -19,7 +20,7 @@ export function Overview() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard title="Throughput" value={(metrics?.throughput || 0).toFixed(1)} trend="/sec" icon={<Activity />} />
         <MetricCard title="Queue Depth" value={metrics?.queue_depth || 0} color="amber" icon={<List />} />
-        <MetricCard title="Active Workers" value={metrics?.worker_utilization || 0} color="blue" icon={<Server />} />
+        <MetricCard title="Active Workers" value={workers?.length || 0} color="blue" icon={<Server />} />
         <MetricCard title="Avg Latency" value={`${(metrics?.latency_p50 || 0).toFixed(0)}ms`} icon={<Clock />} />
         
         <MetricCard title="Failure Rate" value={`${(metrics?.failure_rate || 0).toFixed(2)}%`} color={metrics?.failure_rate && metrics.failure_rate > 5 ? 'red' : 'default'} icon={<XCircle />} />

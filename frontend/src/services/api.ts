@@ -13,7 +13,7 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   createTask: (data: TaskCreate) => 
-    fetchApi<{task_id: string}>(`${API_BASE}/tasks`, {
+    fetchApi<Task>(`${API_BASE}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -31,9 +31,9 @@ export const api = {
   
   getTask: (id: string) => fetchApi<Task>(`${API_BASE}/tasks/${id}`),
   
-  cancelTask: (id: string) => fetchApi<{status: string}>(`${API_BASE}/tasks/${id}/cancel`, { method: 'POST' }),
+  cancelTask: (id: string) => fetchApi<Task>(`${API_BASE}/tasks/${id}/cancel`, { method: 'POST' }),
   
-  retryTask: (id: string) => fetchApi<{status: string}>(`${API_BASE}/tasks/${id}/retry`, { method: 'POST' }),
+  retryTask: (id: string) => fetchApi<Task>(`${API_BASE}/tasks/${id}/retry`, { method: 'POST' }),
   
   listDlqTasks: () => fetchApi<Task[]>(`${API_BASE}/tasks/dlq`),
   

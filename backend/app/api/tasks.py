@@ -36,14 +36,24 @@ async def create_task(
         
     return result
 
-@router.get("", response_model=List[TaskSummary])
+@router.get("")
 async def list_tasks(
     status: Optional[TaskStatus] = None,
     limit: int = 50,
     offset: int = 0,
     state: TaskStateManager = Depends(get_state_manager)
 ):
-    return await state.list_tasks(status=status, limit=limit, offset=offset)
+    tasks = await state.list_tasks(status=status, limit=limit, offset=offset)
+    total = await state.count_tasks(status=status)
+    page = offset // limit + 1
+    pages = max(1, (total + limit - 1) // limit)
+    return {
+        "items": tasks,
+        "total": total,
+        "page": page,
+        "size": limit,
+        "pages": pages
+    }
 
 @router.get("/dlq", response_model=List[TaskSummary])
 async def list_dlq_tasks(
@@ -103,11 +113,12 @@ async def retry_task(
     if task.status not in {TaskStatus.FAILED, TaskStatus.DLQ}:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in {task.status} state")
         
+    original_status = task.status
     task.status = TaskStatus.QUEUED
     task.attempt = 0
     await state.redis.hset(f"ts:task:{task_id}", "data", task.model_dump_json())
     
-    if task.status == TaskStatus.DLQ:
+    if original_status == TaskStatus.DLQ:
         await state.redis.lrem("ts:dlq", 0, task_id)
         
     await state.redis.zadd("ts:queue:priority", {task_id: task.priority})

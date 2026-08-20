@@ -12,7 +12,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   
   if (status === TaskStatus.COMPLETED || status === WorkerStatus.HEALTHY) {
     colorClass = 'bg-green-500/10 text-green-400 border-green-500/20';
-  } else if (status === TaskStatus.RUNNING || status === WorkerStatus.UNHEALTHY) {
+  } else if (status === TaskStatus.RUNNING || status === WorkerStatus.UNHEALTHY || status === TaskStatus.RETRYING) {
     colorClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
   } else if (status === TaskStatus.FAILED || status === WorkerStatus.OFFLINE) {
     colorClass = 'bg-red-500/10 text-red-400 border-red-500/20';

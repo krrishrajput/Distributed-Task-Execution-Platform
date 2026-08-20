@@ -9,7 +9,7 @@ class WorkerStatus(str, Enum):
     OFFLINE = "OFFLINE"
 
 class WorkerInfo(BaseModel):
-    id: str
+    worker_id: str
     status: WorkerStatus
     last_heartbeat: datetime
     started_at: datetime
