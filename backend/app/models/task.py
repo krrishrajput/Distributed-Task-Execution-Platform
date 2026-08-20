@@ -61,10 +61,15 @@ class Task(BaseModel):
     retry_history: List[RetryRecord]
 
     @field_validator("payload", mode="before")
-
     def coerce_empty_payload(cls, v):
         if isinstance(v, list) and len(v) == 0:
             return {}
+        return v
+
+    @field_validator("state_history", "retry_history", mode="before")
+    def coerce_empty_lists(cls, v):
+        if isinstance(v, dict) and len(v) == 0:
+            return []
         return v
 
 class TaskSummary(BaseModel):
