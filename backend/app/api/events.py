@@ -14,7 +14,7 @@ async def event_streamer(redis: Redis, request: Request):
     await subscriber.subscribe()
     try:
         async for event in subscriber.event_generator():
-            if request.is_disconnected:
+            if await request.is_disconnected():
                 break
             yield f"data: {event.model_dump_json()}\n\n"
     except asyncio.CancelledError:
