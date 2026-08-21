@@ -46,4 +46,13 @@ redis.call("SREM", worker_tasks_key, task_id)
 redis.call("DEL", lease_key)
 redis.call("INCR", metrics_completed_key)
 
+local event = cjson.encode({
+    event_type = "TASK_COMPLETED",
+    timestamp = timestamp_str,
+    task_id = task_id,
+    worker_id = worker_id,
+    details = {}
+})
+redis.call("PUBLISH", events_channel, event)
+
 return "ok"

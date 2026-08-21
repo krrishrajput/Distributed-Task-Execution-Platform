@@ -67,6 +67,10 @@ export interface Metrics {
   scheduled_count: number;
   retry_queue_count: number;
   priority_breakdown: Record<string, number>;
+  active_workers: number;
+  submitted: number;
+  completed: number;
+  failed: number;
 }
 
 export enum EventType {

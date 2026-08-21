@@ -63,4 +63,17 @@ redis.call("SREM", active_tasks_key, task_id)
 redis.call("SREM", worker_tasks_key, task_id)
 redis.call("DEL", lease_key)
 
+local event_type = "TASK_FAILED"
+if task_data.status == "RETRYING" then
+    event_type = "TASK_RETRYING"
+end
+local event = cjson.encode({
+    event_type = event_type,
+    timestamp = timestamp_str,
+    task_id = task_id,
+    worker_id = worker_id,
+    details = { error = error_msg, attempt = task_data.attempt }
+})
+redis.call("PUBLISH", events_channel, event)
+
 return task_data.status

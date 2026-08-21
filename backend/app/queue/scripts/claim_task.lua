@@ -50,4 +50,13 @@ redis.call("SADD", worker_tasks_key, task_id)
 local lease_key = "ts:lease:" .. task_id
 redis.call("SET", lease_key, lease_id, "EX", lease_duration)
 
+local event = cjson.encode({
+    event_type = "TASK_STARTED",
+    timestamp = timestamp_str,
+    task_id = task_id,
+    worker_id = worker_id,
+    details = {}
+})
+redis.call("PUBLISH", events_channel, event)
+
 return cjson.encode(task_data)

@@ -44,4 +44,12 @@ if old_worker and old_worker ~= cjson.null and old_worker ~= "" then
     redis.call("SREM", "ts:worker:" .. old_worker .. ":tasks", task_id)
 end
 
+local event = cjson.encode({
+    event_type = "TASK_RECOVERED",
+    timestamp = timestamp_str,
+    task_id = task_id,
+    details = {}
+})
+redis.call("PUBLISH", events_channel, event)
+
 return "ok"
