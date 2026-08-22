@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { Activity, LayoutDashboard, List, Server, GitBranch, Zap, ZapOff } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useSSE } from '../hooks/useSSE';
+import { useGlobalSSE as useSSE } from "../context/SSEContext";
 
 export function Layout() {
   const { isConnected } = useSSE();

@@ -93,15 +93,20 @@ class WorkerRuntime:
             self.semaphore.release()
 
     async def shutdown(self):
-        logger.info("Worker shutting down gracefully...")
+        logger.info("Worker shutting down gracefully (timeout 10s)...")
         self.running = False
         if self._loop_task:
             self._loop_task.cancel()
         
-        # Wait for active tasks to finish or just drop them
-        while self.active_tasks:
-            logger.info(f"Waiting for {len(self.active_tasks)} active tasks to complete...")
+        # Bounded wait
+        wait_cycles = 10
+        while self.active_tasks and wait_cycles > 0:
+            logger.info(f"Waiting for {len(self.active_tasks)} active tasks... {wait_cycles}s remaining")
             await asyncio.sleep(1)
+            wait_cycles -= 1
+            
+        if self.active_tasks:
+            logger.warning(f"Dropping {len(self.active_tasks)} stuck tasks during shutdown. Leases will expire naturally.")
             
         await self.heartbeat.stop()
         logger.info("Worker shutdown complete.")

@@ -46,13 +46,11 @@ class TaskQueue:
         idempotency_key_key = f"ts:idempotency:{task_create.idempotency_key}" if task_create.idempotency_key else ""
         
         scheduled_at_score = task_create.scheduled_at.timestamp() if task_create.scheduled_at else 0
-        # Score encoding: priority * 1e12 + timestamp_ns for FIFO ordering within same priority
         ns = int(now.timestamp() * 1e9) % 1000000000
-        score = task_create.priority * 1000000000000 + ns
-
+        
         keys = [
             task_hash_key, self.priority_queue, self.scheduled_queue,
-            idempotency_key_key, "ts:metrics:submitted", self.events_channel, "ts:tasks:all"
+            idempotency_key_key, "ts:metrics:submitted", self.events_channel, "ts:tasks:all", "ts:queue:sequence"
         ]
         event_json = json.dumps({
             "event_type": "TASK_QUEUED",
@@ -61,7 +59,7 @@ class TaskQueue:
             "data": {}
         })
         args = [
-            task_id, task.model_dump_json(), score, scheduled_at_score,
+            task_id, task.model_dump_json(), task_create.priority, scheduled_at_score,
             task_create.idempotency_key or "", event_json, self.config.IDEMPOTENCY_KEY_TTL_SECONDS
         ]
 
@@ -99,9 +97,8 @@ class TaskQueue:
         timestamp_ms = int(now.timestamp() * 1000)
         delay = calculate_retry_delay(attempt, self.config.TASK_RETRY_BASE_DELAY, self.config.TASK_RETRY_MAX_DELAY)
         retry_score = now.timestamp() + delay
-        
-        keys = [f"ts:task:{task_id}", f"ts:lease:{task_id}", self.active_tasks, f"ts:worker:{worker_id}:tasks", self.retry_queue, self.dlq, "ts:metrics:failed", self.events_channel]
-        args = [task_id, worker_id, lease_id, error, now.isoformat(), retry_score, timestamp_ms]
+        keys = [f"ts:task:{task_id}", f"ts:lease:{task_id}", self.active_tasks, f"ts:worker:{worker_id}:tasks", self.retry_queue, self.dlq, "ts:metrics:failed", self.events_channel, "ts:queue:sequence", self.priority_queue]
+        args = [task_id, worker_id, lease_id, error, now.isoformat(), retry_score, timestamp_ms, attempt]
         
         res = await self.scripts.fail_task(keys, args)
         return not str(res).startswith("error:")
@@ -118,7 +115,8 @@ class TaskQueue:
             self.priority_queue,
             self.active_tasks,
             "ts:worker",
-            self.events_channel
+            self.events_channel,
+            "ts:queue:sequence"
         ]
         args = [task_id, now_str]
         res = await self.scripts.recover_task(keys, args)

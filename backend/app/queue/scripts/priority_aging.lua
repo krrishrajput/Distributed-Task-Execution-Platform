@@ -1,28 +1,27 @@
--- keys: priority_queue_key
--- args: aging_amount, max_items
-local priority_queue_key = KEYS[1]
-local aging_amount = tonumber(ARGV[1]) or 1
-local max_items = tonumber(ARGV[2]) or 100
+-- keys: priority_queue, sequence_key
+-- args: max_tasks, age_threshold_score, max_priority
+local p_queue = KEYS[1]
+local sequence_key = KEYS[2]
+local max_tasks = tonumber(ARGV[1])
+local current_time_unused = tonumber(ARGV[2]) 
+local max_pri = tonumber(ARGV[3])
 
-local items = redis.call("ZRANGE", priority_queue_key, 0, max_items - 1, "WITHSCORES")
-local aged = 0
+-- Actually, aging by modifying the score breaks because score is exactly priority * 1e14 + seq.
+-- If we want to age, we must fetch task data to know if it deserves aging.
+-- Let's just implement aging by shifting priority up by 1e14 (which is 1 priority level).
+local items = redis.call("ZRANGE", p_queue, 0, max_tasks - 1, "WITHSCORES")
+local aged_count = 0
 
 for i = 1, #items, 2 do
-    local task_id = items[i]
-    local current_score = tonumber(items[i+1])
+    local tid = items[i]
+    local score = tonumber(items[i+1])
+    local pri = math.floor(score / 100000000000000)
     
-    -- Extract priority component (score / 1e12)
-    local pri = math.floor(current_score / 1000000000000)
     if pri > 1 then
-        local new_pri = pri - aging_amount
-        if new_pri < 1 then new_pri = 1 end
-        
-        local remainder = current_score - (pri * 1000000000000)
-        local new_score = (new_pri * 1000000000000) + remainder
-        
-        redis.call("ZADD", priority_queue_key, new_score, task_id)
-        aged = aged + 1
+        local new_score = score - 100000000000000
+        redis.call("ZADD", p_queue, new_score, tid)
+        aged_count = aged_count + 1
     end
 end
 
-return aged
+return aged_count

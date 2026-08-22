@@ -2,7 +2,7 @@ import React from 'react';
 import { MetricCard } from '../components/MetricCard';
 import { EventLog } from '../components/EventLog';
 import { usePolling } from '../hooks/usePolling';
-import { useSSE } from '../hooks/useSSE';
+import { useGlobalSSE as useSSE } from "../context/SSEContext";
 import { api } from '../services/api';
 import { Activity, Server, List, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
 

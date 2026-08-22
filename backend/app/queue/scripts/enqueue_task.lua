@@ -1,5 +1,5 @@
--- keys: task_hash_key, priority_queue_key, scheduled_queue_key, idempotency_key_key, metrics_submitted_key, events_channel
--- args: task_id, task_json_data, score, scheduled_at_score, idempotency_key, event_json, idempotency_ttl
+-- keys: task_hash_key, priority_queue_key, scheduled_queue_key, idempotency_key_key, metrics_submitted_key, events_channel, all_tasks_key, sequence_key
+-- args: task_id, task_json_data, priority, scheduled_at_score, idempotency_key, event_json, idempotency_ttl
 
 local task_hash_key = KEYS[1]
 local priority_queue_key = KEYS[2]
@@ -8,10 +8,11 @@ local idempotency_key_key = KEYS[4]
 local metrics_submitted_key = KEYS[5]
 local events_channel = KEYS[6]
 local all_tasks_key = KEYS[7]
+local sequence_key = KEYS[8]
 
 local task_id = ARGV[1]
 local task_json_data = ARGV[2]
-local score = tonumber(ARGV[3])
+local priority = tonumber(ARGV[3])
 local scheduled_at_score = tonumber(ARGV[4])
 local idempotency_key = ARGV[5]
 local event_json = ARGV[6]
@@ -29,10 +30,13 @@ redis.call("HSET", task_hash_key, "data", task_json_data)
 if all_tasks_key then
     redis.call("SADD", all_tasks_key, task_id)
 end
+
 if scheduled_at_score > 0 then
     redis.call("ZADD", scheduled_queue_key, scheduled_at_score, task_id)
 else
-    redis.call("ZADD", priority_queue_key, score, task_id)
+    local seq = redis.call("INCR", sequence_key)
+    local score = (priority * 100000000000000) + seq
+    redis.call("ZADD", priority_queue_key, tostring(score), task_id)
 end
 
 redis.call("INCR", metrics_submitted_key)

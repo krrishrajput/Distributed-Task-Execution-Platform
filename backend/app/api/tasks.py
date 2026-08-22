@@ -27,6 +27,16 @@ async def create_task(
     if len(str(task_create.payload).encode("utf-8")) > config.MAX_PAYLOAD_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="Payload too large")
         
+    p = task_create.payload
+    if task_create.task_type == "sleep" and p.get("duration", 0) > 300:
+        raise HTTPException(status_code=400, detail="Sleep duration cannot exceed 300s")
+    if task_create.task_type == "cpu_simulation" and p.get("iterations", 0) > 100_000_000:
+        raise HTTPException(status_code=400, detail="CPU iterations cannot exceed 100M")
+    if task_create.task_type == "random_failure" and not (0 <= p.get("failure_rate", 0.5) <= 1):
+        raise HTTPException(status_code=400, detail="failure_rate must be between 0 and 1")
+    if task_create.task_type == "eventual_success" and p.get("failures_before_success", 0) > 10:
+        raise HTTPException(status_code=400, detail="failures_before_success cannot exceed 10")
+        
     result = await queue.enqueue(task_create)
     if isinstance(result, str):
         # existing task from idempotency key
@@ -96,7 +106,7 @@ async def cancel_task(
     import json
     
     task.status = TaskStatus.CANCELLED
-    task.updated_at = datetime.now(timezone.utc).isoformat()
+    task.updated_at = datetime.now(timezone.utc)
     
     async with state.redis.pipeline(transaction=True) as pipe:
         pipe.hset(f"ts:task:{task_id}", "data", task.model_dump_json())
@@ -107,7 +117,7 @@ async def cancel_task(
         
         event = {
             "event_type": "TASK_CANCELLED",
-            "timestamp": task.updated_at,
+            "timestamp": task.updated_at.isoformat(),
             "task_id": task_id,
             "details": {}
         }

@@ -1,5 +1,5 @@
--- KEYS: task_key, lease_key, active_tasks_key, worker_tasks_key, retry_queue_key, dlq_key, metrics_failed, events_channel
--- ARGS: task_id, worker_id, lease_id, error_msg, timestamp_str, retry_delay_score, timestamp_ms
+-- KEYS: task_key, lease_key, active_tasks_key, worker_tasks_key, retry_queue_key, dlq_key, metrics_failed, events_channel, sequence_key, priority_queue_key
+-- ARGS: task_id, worker_id, lease_id, error_msg, timestamp_str, retry_delay_score, timestamp_ms, priority
 
 local task_key = KEYS[1]
 local lease_key = KEYS[2]
@@ -9,6 +9,8 @@ local retry_queue_key = KEYS[5]
 local dlq_key = KEYS[6]
 local metrics_failed = KEYS[7]
 local events_channel = KEYS[8]
+local sequence_key = KEYS[9]
+local priority_queue = KEYS[10]
 
 local task_id = ARGV[1]
 local worker_id = ARGV[2]
@@ -17,6 +19,7 @@ local error_msg = ARGV[4]
 local timestamp_str = ARGV[5]
 local retry_delay_score = tonumber(ARGV[6])
 local timestamp_ms = tonumber(ARGV[7])
+local priority = tonumber(ARGV[8])
 
 local current_lease = redis.call("GET", lease_key)
 if current_lease ~= lease_id then
@@ -29,11 +32,14 @@ pcall(cjson.encode_empty_table_as_object, true)
 local task_data = cjson.decode(raw_data)
 
 local from_status = task_data.status
-if task_data.attempt < task_data.max_retries then
+task_data.updated_at = timestamp_str
+
+if task_data.attempt <= task_data.max_retries then
     task_data.status = "RETRYING"
+    redis.call("INCR", "ts:metrics:retried")
     redis.call("ZADD", retry_queue_key, retry_delay_score, task_id)
 else
-    task_data.status = "FAILED"
+    task_data.status = "DLQ"
     redis.call("LPUSH", dlq_key, task_id)
     redis.call("INCR", metrics_failed)
 end
@@ -63,10 +69,7 @@ redis.call("SREM", active_tasks_key, task_id)
 redis.call("SREM", worker_tasks_key, task_id)
 redis.call("DEL", lease_key)
 
-local event_type = "TASK_FAILED"
-if task_data.status == "RETRYING" then
-    event_type = "TASK_RETRYING"
-end
+local event_type = task_data.status == "RETRYING" and "TASK_RETRYING" or "TASK_DLQ"
 local event = cjson.encode({
     event_type = event_type,
     timestamp = timestamp_str,

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataTable } from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
 import { usePolling } from '../hooks/usePolling';
-import { useSSE } from '../hooks/useSSE';
+import { useGlobalSSE } from '../context/SSEContext';
 import { api } from '../services/api';
 import { Task, TaskStatus } from '../types';
 import { format } from 'date-fns';
@@ -22,56 +22,61 @@ const mapEventToStatus = (eventType: string): TaskStatus | undefined => {
 };
 
 export function Tasks() {
-  const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status') || '';
+  const initialPage = parseInt(searchParams.get('page') || '1', 10);
+  
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [page, setPage] = useState(initialPage);
   const navigate = useNavigate();
   
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set('status', statusFilter);
+    if (page > 1) params.set('page', page.toString());
+    setSearchParams(params, { replace: true });
+  }, [statusFilter, page, setSearchParams]);
+
   const { data: polledData, isLoading } = usePolling(
     () => api.listTasks({ limit: 50, offset: (page - 1) * 50, status: statusFilter }),
     5000,
     [page, statusFilter]
   );
   
-  const { events } = useSSE();
+  const { events } = useGlobalSSE();
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Safely merge polled data with real-time SSE updates using timestamp reconciliation
+  // Overwrite completely on new page data, don't accumulate across pages
   useEffect(() => {
     if (!polledData?.items) return;
-    
-    setTasks(prevTasks => {
-      const merged = new Map(prevTasks.map(t => [t.id, t]));
-      
-      polledData.items.forEach(polledTask => {
-        const existing = merged.get(polledTask.id);
-        // CRITICAL FIX: Only accept the polled payload if its updated_at is STRICTLY NEWER
-        // than what we currently have in local state (which may have been mutated by SSE)
-        if (!existing || new Date(polledTask.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
-          merged.set(polledTask.id, polledTask);
-        }
-      });
-      return Array.from(merged.values());
-    });
+    setTasks(polledData.items);
   }, [polledData]);
 
-  // Apply SSE mutations instantly
+  // Apply SSE mutations instantly only to tasks currently in view
   useEffect(() => {
     if (events.length === 0) return;
-    const latestEvent = events[0];
+    const latestEvent = events[0]; // because events are unshifted in SSE context? Wait, the context pushes them.
     
-    if (latestEvent.task_id) {
-      setTasks(prev => prev.map(t => {
-        if (t.id === latestEvent.task_id) {
-            const newStatus = mapEventToStatus(latestEvent.event_type);
-            return { 
-                ...t, 
-                status: newStatus || t.status, 
-                updated_at: latestEvent.timestamp 
-            };
-        }
-        return t;
-      }));
-    }
+    // Process all new events since last render
+    setTasks(prev => {
+        let updated = [...prev];
+        let changed = false;
+        
+        events.forEach(event => {
+            if (!event.task_id) return;
+            const idx = updated.findIndex(t => t.id === event.task_id);
+            if (idx !== -1) {
+                const newStatus = mapEventToStatus(event.event_type);
+                if (newStatus && updated[idx].status !== newStatus) {
+                    updated[idx] = { ...updated[idx], status: newStatus, updated_at: event.timestamp };
+                    changed = true;
+                }
+            }
+        });
+        
+        return changed ? updated : prev;
+    });
   }, [events]);
 
   const columns = [

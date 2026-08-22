@@ -1,25 +1,25 @@
--- keys: scheduled_queue_key, priority_queue_key
--- args: current_time_score, limit
-local scheduled = KEYS[1]
-local priority = KEYS[2]
+-- keys: scheduled_queue, priority_queue, sequence_key
+-- args: current_timestamp
+local scheduled_queue = KEYS[1]
+local p_queue = KEYS[2]
+local sequence_key = KEYS[3]
 local current_time = tonumber(ARGV[1])
-local limit = tonumber(ARGV[2])
 
-local items = redis.call("ZRANGEBYSCORE", scheduled, "-inf", current_time, "LIMIT", 0, limit)
-local promoted = 0
+local items = redis.call("ZRANGEBYSCORE", scheduled_queue, "-inf", current_time)
+if #items == 0 then return 0 end
 
-for _, task_id in ipairs(items) do
-    local task_key = "ts:task:" .. task_id
-    local raw_data = redis.call("HGET", task_key, "data")
+for _, tid in ipairs(items) do
+    local raw_data = redis.call("HGET", "ts:task:" .. tid, "data")
     if raw_data then
+        pcall(cjson.encode_empty_table_as_object, true)
         local task_data = cjson.decode(raw_data)
-        redis.call("ZADD", priority, task_data.priority, task_id)
-        
         task_data.status = "QUEUED"
-        redis.call("HSET", task_key, "data", cjson.encode(task_data))
-        promoted = promoted + 1
+        redis.call("HSET", "ts:task:" .. tid, "data", cjson.encode(task_data))
+        
+        local seq = redis.call("INCR", sequence_key)
+        local score = (task_data.priority * 100000000000000) + seq
+        redis.call("ZADD", p_queue, tostring(score), tid)
     end
-    redis.call("ZREM", scheduled, task_id)
 end
-
-return promoted
+redis.call("ZREMRANGEBYSCORE", scheduled_queue, "-inf", current_time)
+return #items

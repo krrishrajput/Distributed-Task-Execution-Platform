@@ -17,9 +17,9 @@ TASK_TYPES = ["sleep", "cpu_simulation", "random_failure", "deterministic_failur
 
 class TaskCreate(BaseModel):
     task_type: str
-    payload: dict = {}
+    payload: dict = Field(default_factory=dict)
     priority: int = Field(default=5, ge=1, le=10)
-    max_retries: int = Field(default=3, ge=0, le=20)
+    max_retries: int = Field(default=3, ge=0, le=20, description='Number of retries allowed after initial execution')
     scheduled_at: Optional[datetime] = None
     idempotency_key: Optional[str] = None
 

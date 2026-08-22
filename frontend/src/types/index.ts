@@ -16,6 +16,22 @@ export enum WorkerStatus {
   OFFLINE = 'OFFLINE'
 }
 
+export interface StateTransition {
+  from_status: TaskStatus;
+  to_status: TaskStatus;
+  timestamp: string;
+  worker_id?: string;
+  reason?: string;
+}
+
+export interface RetryRecord {
+  attempt: number;
+  error: string;
+  timestamp: string;
+  worker_id: string;
+  next_retry_at?: string;
+}
+
 export interface Task {
   id: string;
   task_type: string;
@@ -31,6 +47,8 @@ export interface Task {
   updated_at: string;
   started_at?: string | null;
   completed_at?: string | null;
+  state_history?: StateTransition[];
+  retry_history?: RetryRecord[];
 }
 
 export interface TaskCreate {

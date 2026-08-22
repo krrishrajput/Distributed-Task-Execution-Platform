@@ -14,8 +14,13 @@ async def list_workers(
     worker_ids = await redis.smembers("ts:workers")
     workers = []
     
-    for wid in worker_ids:
-        data = await redis.get(f"ts:worker_info:{wid}")
+    if not worker_ids:
+        return []
+    
+    keys = [f"ts:worker_info:{wid}" for wid in worker_ids]
+    raw_data = await redis.mget(keys)
+    
+    for data in raw_data:
         if data:
             workers.append(WorkerInfo.model_validate_json(data))
             

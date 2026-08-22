@@ -32,8 +32,8 @@ class MetricsCollector:
         active_workers = results[7]
         dlq_depth = results[8]
         
-        failure_rate = (failed / max(submitted, 1)) * 100.0
-        worker_utilization = (active_tasks / max(active_workers * 10, 1)) * 100.0
+        
+        
         
         # Scan completed tasks for real metrics
         task_ids = await self.redis.smembers("ts:tasks:all")
@@ -81,6 +81,25 @@ class MetricsCollector:
                     
         throughput = recent_completions / 60.0
 
+        
+        worker_concurrency_total = 0
+        for wid in await self.redis.smembers("ts:workers"):
+            w_info = await self.redis.hget("ts:worker_info", wid)
+            if w_info:
+                try:
+                    import json
+                    w_dict = json.loads(w_info)
+                    worker_concurrency_total += w_dict.get("concurrency", 10)
+                except Exception:
+                    worker_concurrency_total += 10
+        
+        worker_utilization = (active_tasks / max(worker_concurrency_total, 1)) * 100.0
+        failure_rate = (failed / max(submitted, 1)) * 100.0
+        
+        retry_count = int(await self.redis.get("ts:metrics:retried") or 0)
+        recovery_count = int(await self.redis.get("ts:metrics:recovered") or 0)
+        retry_rate = (retry_count / max(submitted, 1)) * 100.0
+
         return {
             "throughput": float(throughput),
             "queue_depth": int(q_prio),
@@ -88,16 +107,17 @@ class MetricsCollector:
             "latency_p95": float(latency_p95),
             "latency_p99": float(latency_p99),
             "avg_execution_duration": float(avg_duration),
-            "retry_rate": float(failure_rate * 0.8),
+            "retry_rate": float(retry_rate),
             "failure_rate": float(failure_rate),
             "worker_utilization": float(worker_utilization),
-            "recovery_count": 0,
+            "recovery_count": recovery_count,
             "dlq_count": int(dlq_depth),
             "scheduled_count": int(q_sched),
             "retry_queue_count": int(q_retry),
-            "priority_breakdown": {"5": int(q_prio)} if q_prio > 0 else {},
+            "priority_breakdown": {}, # Need to compute this by scanning priority queue if small, or keep empty for now to avoid fake data
             "active_workers": int(active_workers),
             "submitted": int(submitted),
             "completed": int(completed),
             "failed": int(failed)
         }
+

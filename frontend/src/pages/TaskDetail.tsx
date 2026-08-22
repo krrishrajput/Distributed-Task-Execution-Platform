@@ -38,19 +38,32 @@ export function TaskDetail() {
   // Mock timeline for now (since we don't have a history array in the provided Task model directly)
   // In a real app, this would come from `task.events` or similar if the backend provided it
   const timelineEvents: TimelineEvent[] = [
-    { timestamp: task.created_at, title: 'Task Created' },
+    { timestamp: task.created_at, title: 'Task Created' }
   ];
-  if (task.started_at) {
-    timelineEvents.push({ timestamp: task.started_at, title: 'Task Started', description: `Worker: ${task.worker_id}` });
-  }
-  if (task.completed_at) {
-    timelineEvents.push({ 
-      timestamp: task.completed_at, 
-      title: `Task ${task.status}`, 
-      isError: task.status === TaskStatus.FAILED || task.status === TaskStatus.DLQ,
-      description: task.error || 'Completed successfully'
+  
+  if (task.state_history) {
+    task.state_history.forEach(sh => {
+        timelineEvents.push({
+            timestamp: sh.timestamp,
+            title: `State: ${sh.to_status}`,
+            description: sh.reason || (sh.worker_id ? `Worker: ${sh.worker_id}` : undefined),
+            isError: sh.to_status === TaskStatus.FAILED || sh.to_status === TaskStatus.DLQ
+        });
     });
   }
+  if (task.retry_history) {
+    task.retry_history.forEach(rh => {
+        timelineEvents.push({
+            timestamp: rh.timestamp,
+            title: `Retry Attempt ${rh.attempt}`,
+            description: rh.error,
+            isError: true
+        });
+    });
+  }
+  
+  // Sort timeline events chronologically
+  timelineEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   const isCancelable = [TaskStatus.PENDING, TaskStatus.QUEUED, TaskStatus.RUNNING].includes(task.status);
   const isRetryable = [TaskStatus.FAILED, TaskStatus.DLQ].includes(task.status);

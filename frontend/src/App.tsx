@@ -8,9 +8,11 @@ import { Workers } from './pages/Workers';
 import { Metrics } from './pages/Metrics';
 import { Queue } from './pages/Queue';
 import { Simulate } from './pages/Simulate';
+import { SSEProvider } from './context/SSEContext';
 
 function App() {
   return (
+    <SSEProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
@@ -25,6 +27,7 @@ function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </SSEProvider>
   );
 }
 
