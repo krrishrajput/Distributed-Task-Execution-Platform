@@ -1,4 +1,8 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+# Bounded executor to prevent thread explosion
+WORKER_POOL = ThreadPoolExecutor(max_workers=10)
 import random
 import time
 from typing import Callable, Any
@@ -30,7 +34,7 @@ def cpu_work(iterations: int):
 async def handle_cpu_simulation(payload: dict, attempt: int) -> dict:
     iterations = payload.get("iterations", 1_000_000)
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, cpu_work, iterations)
+    result = await loop.run_in_executor(WORKER_POOL, cpu_work, iterations)
     return {"result": result, "iterations": iterations}
 
 @register_handler("random_failure")

@@ -89,15 +89,31 @@ async def cancel_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    if task.status not in {TaskStatus.PENDING, TaskStatus.QUEUED, TaskStatus.RETRYING}:
+    if task.status not in {TaskStatus.PENDING, TaskStatus.QUEUED, TaskStatus.RETRYING, TaskStatus.RUNNING}:
         raise HTTPException(status_code=400, detail=f"Cannot cancel task in {task.status} state")
         
+    from datetime import datetime, timezone
+    import json
+    
     task.status = TaskStatus.CANCELLED
-    await state.redis.hset(f"ts:task:{task_id}", "data", task.model_dump_json())
-    # Cleanup from queues
-    await state.redis.zrem("ts:queue:priority", task_id)
-    await state.redis.zrem("ts:queue:scheduled", task_id)
-    await state.redis.zrem("ts:queue:retry", task_id)
+    task.updated_at = datetime.now(timezone.utc).isoformat()
+    
+    async with state.redis.pipeline(transaction=True) as pipe:
+        pipe.hset(f"ts:task:{task_id}", "data", task.model_dump_json())
+        pipe.zrem("ts:queue:priority", task_id)
+        pipe.zrem("ts:queue:scheduled", task_id)
+        pipe.zrem("ts:queue:retry", task_id)
+        pipe.delete(f"ts:lease:{task_id}")
+        
+        event = {
+            "event_type": "TASK_CANCELLED",
+            "timestamp": task.updated_at,
+            "task_id": task_id,
+            "details": {}
+        }
+        pipe.publish("ts:events", json.dumps(event))
+        
+        await pipe.execute()
     
     return task
 
